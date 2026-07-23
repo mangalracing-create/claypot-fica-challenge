@@ -1,0 +1,9 @@
+{
+  "name": "claypot-fica-challenge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Claypot FICA Challenge — booth game + live leaderboard",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}
