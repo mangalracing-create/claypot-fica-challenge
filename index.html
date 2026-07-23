@@ -290,9 +290,54 @@
 
   .confetti{position:absolute;width:10px;height:14px;top:-20px;z-index:900;pointer-events:none;}
 
-  .rotate-note{display:none;position:absolute;inset:0;background:var(--wood-dark);color:var(--cream);z-index:2000;text-align:center;padding:40px;flex-direction:column;align-items:center;justify-content:center;font-size:20px;}
-  @media (max-aspect-ratio:1/1){
-    .rotate-note{display:flex;}
+  .rotate-note{display:none;}
+
+  /* ---------------- Mobile / small screens (portrait-friendly) ---------------- */
+  @media (max-width:760px){
+    h1{font-size:clamp(24px,7vw,40px);}
+    .hud{top:10px;padding:0 8px;}
+    .hud .pill{padding:4px 8px;font-size:11px;border-radius:12px;}
+    .stage-title{top:8px;padding:5px 8px;font-size:12px;max-width:56vw;border-radius:0 0 10px 10px;}
+
+    /* Stage 1 — more room for the grid, compact pot */
+    .conveyor{top:116px;bottom:33%;}
+    .pot-zone{bottom:3%;}
+    .claypot{width:clamp(130px,42vw,200px);height:clamp(108px,34vw,165px);}
+    .pot-zone .hint{font-size:12px;}
+
+    /* Stage 2 */
+    #stage2 .card-stack{top:148px;}
+    .data-card{width:min(90vw,340px);padding:11px 14px;}
+    .retention-policy{font-size:10.5px;padding:6px 9px;width:94vw;}
+    #stage2 .bins{gap:10px;bottom:3%;padding:0 8px;}
+    .bin{width:46vw;min-height:112px;padding:8px;}
+    .bin .bin-title{font-size:14px;}
+    .bin .bin-sub{font-size:9.5px;}
+    .bin .bin-icon{font-size:24px;}
+
+    /* Stage 3 */
+    #cookTimer{font-size:clamp(28px,9vw,44px);}
+    .cook-claypot{transform:scale(1);}
+    .compare{gap:20px;}
+    .compare .bar{height:120px;width:52px;}
+
+    /* Registration / results / leaderboard cards scroll if tall */
+    .reg-card,#results .card,.lb-card{max-height:90vh;overflow:auto;}
+    .reg-body{gap:12px;}
+    .cat-grid{grid-template-columns:1fr;}
+    .btn{font-size:16px;padding:13px 24px;}
+    .btn.small{font-size:13px;padding:8px 14px;}
+    .welcome-btns{gap:8px;}
+  }
+
+  /* Very short landscape (phone held sideways) */
+  @media (max-height:470px){
+    .conveyor{top:70px;bottom:26%;}
+    .hud{top:6px;}
+    .stage-title{top:6px;font-size:12px;padding:4px 8px;}
+    .claypot{width:clamp(96px,18vw,150px);height:clamp(78px,14vw,120px);}
+    .meter-wrap{margin:2px auto;}
+    #cookTimer{font-size:30px;}
   }
 </style>
 </head>
@@ -317,25 +362,12 @@
   <section class="screen" id="register">
     <div class="reg-card">
       <h2 style="margin-top:0;">👨‍🍳 Player Check-In</h2>
-      <p class="reg-sub">Register to join the daily leaderboard and take home your Claypot photo!</p>
+      <p class="reg-sub">Register to join the daily leaderboard, then start cooking!</p>
       <div class="reg-body">
         <div class="reg-fields">
           <label>Your Name *<input id="regName" type="text" maxlength="24" placeholder="e.g. Arpit" autocomplete="off" /></label>
           <label>Company / Team<input id="regCompany" type="text" maxlength="28" placeholder="e.g. Finance Transformation" autocomplete="off" /></label>
           <label>Email (optional)<input id="regEmail" type="email" maxlength="60" placeholder="name@company.com" autocomplete="off" /></label>
-        </div>
-        <div class="cam-col">
-          <div class="cam-box" id="camBox">
-            <video id="camVideo" autoplay playsinline muted></video>
-            <img id="camPhoto" alt="captured photo" />
-            <div class="cam-placeholder" id="camPlaceholder"><span class="big">📷</span><span>Snap a photo for<br/>your leaderboard card</span></div>
-          </div>
-          <div class="cam-controls">
-            <button class="btn small ghost" id="camStartBtn" onclick="Reg.enableCamera()">Enable Camera</button>
-            <button class="btn small gold" id="camSnapBtn" style="display:none" onclick="Reg.snap()">📸 Capture</button>
-            <button class="btn small ghost" id="camRetakeBtn" style="display:none" onclick="Reg.retake()">↺ Retake</button>
-          </div>
-          <label class="upload-alt">or upload a photo<input type="file" accept="image/*" id="camUpload" onchange="Reg.upload(event)" /></label>
         </div>
       </div>
       <div class="reg-error" id="regError"></div>
@@ -456,7 +488,6 @@
       </div>
       <div class="welcome-btns" style="justify-content:center;margin-top:6px;">
         <button class="btn gold" onclick="Game.viewLeaderboard()">🏆 View Leaderboard</button>
-        <button class="btn ghost" onclick="Game.savePhoto()">📸 Save My Photo</button>
         <button class="btn" onclick="Game.playAgain()">🔁 Next Player</button>
       </div>
     </div>
@@ -485,10 +516,8 @@
   <div class="rotate-note">📱↻<br/><br/>Please rotate your device to <b>landscape</b> for the best Claypot experience.</div>
 </div>
 
-<!-- Shared leaderboard data layer: Firebase Realtime DB (cross-device) with automatic localStorage fallback -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="js/firebase-config.js"></script>
+<!-- Shared leaderboard data layer (Netlify Function + Blobs, with localStorage fallback) -->
+<script src="js/config.js"></script>
 <script src="js/store.js"></script>
 
 <script>
@@ -639,79 +668,8 @@ function zoneAt(x,y){
 
 /* ================= REGISTRATION / PHOTO ================= */
 const Reg=(function(){
-  let stream=null;
-  const player={name:'',company:'',email:'',photo:null};
+  const player={name:'',company:'',email:''};
   const $=id=>document.getElementById(id);
-
-  function enableCamera(){
-    Sound.resume();
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ camError('Camera not supported here — use upload below.'); return; }
-    navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:640},audio:false})
-      .then(s=>{
-        stream=s;
-        const v=$('camVideo'); v.srcObject=s; v.style.display='block';
-        $('camPhoto').style.display='none';
-        $('camPlaceholder').style.display='none';
-        $('camStartBtn').style.display='none';
-        $('camSnapBtn').style.display='inline-block';
-        $('camRetakeBtn').style.display='none';
-      })
-      .catch(()=>{ camError('Camera blocked — allow access or use upload below.'); });
-  }
-  function camError(msg){
-    const p=$('camPlaceholder');
-    p.innerHTML='<span class="big">📷</span><span>'+msg+'</span>';
-    p.style.display='flex';
-  }
-  function snap(){
-    const v=$('camVideo');
-    if(!v.videoWidth){ return; }
-    Sound.drop();
-    const size=320, c=document.createElement('canvas'); c.width=size; c.height=size;
-    const ctx=c.getContext('2d');
-    const vw=v.videoWidth, vh=v.videoHeight, side=Math.min(vw,vh);
-    const sx=(vw-side)/2, sy=(vh-side)/2;
-    ctx.translate(size,0); ctx.scale(-1,1); // mirror to match preview
-    ctx.drawImage(v, sx,sy,side,side, 0,0,size,size);
-    player.photo=c.toDataURL('image/jpeg',0.82);
-    stopCamera();
-    showPhoto();
-  }
-  function showPhoto(){
-    const img=$('camPhoto'); img.src=player.photo; img.style.display='block';
-    $('camVideo').style.display='none';
-    $('camPlaceholder').style.display='none';
-    $('camStartBtn').style.display='none';
-    $('camSnapBtn').style.display='none';
-    $('camRetakeBtn').style.display='inline-block';
-  }
-  function retake(){
-    player.photo=null;
-    $('camPhoto').style.display='none';
-    $('camRetakeBtn').style.display='none';
-    $('camUpload').value='';
-    enableCamera();
-  }
-  function upload(e){
-    const f=e.target.files&&e.target.files[0]; if(!f) return;
-    stopCamera();
-    const r=new FileReader();
-    r.onload=()=>{
-      const im=new Image();
-      im.onload=()=>{
-        const size=320, c=document.createElement('canvas'); c.width=size; c.height=size;
-        const ctx=c.getContext('2d');
-        const side=Math.min(im.width,im.height);
-        const sx=(im.width-side)/2, sy=(im.height-side)/2;
-        ctx.drawImage(im, sx,sy,side,side, 0,0,size,size);
-        player.photo=c.toDataURL('image/jpeg',0.82);
-        showPhoto();
-      };
-      im.src=r.result;
-    };
-    r.readAsDataURL(f);
-  }
-  function stopCamera(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; $('camVideo').style.display='none'; } }
   function collect(){
     player.name=$('regName').value.trim();
     player.company=$('regCompany').value.trim();
@@ -719,19 +677,12 @@ const Reg=(function(){
     return player;
   }
   function resetForm(){
-    ['regName','regCompany','regEmail','camUpload'].forEach(id=>{ if($(id)) $(id).value=''; });
-    player.name=''; player.company=''; player.email=''; player.photo=null;
-    stopCamera();
-    $('camPhoto').style.display='none';
-    $('camVideo').style.display='none';
-    $('camPlaceholder').innerHTML='<span class="big">📷</span><span>Snap a photo for<br/>your leaderboard card</span>';
-    $('camPlaceholder').style.display='flex';
-    $('camStartBtn').style.display='inline-block';
-    $('camSnapBtn').style.display='none';
-    $('camRetakeBtn').style.display='none';
-    $('regError').textContent='';
+    ['regName','regCompany','regEmail'].forEach(id=>{ if($(id)) $(id).value=''; });
+    player.name=''; player.company=''; player.email='';
+    const err=$('regError'); if(err) err.textContent='';
   }
-  return {enableCamera,snap,retake,upload,stopCamera,collect,resetForm,get:()=>player};
+  function stopCamera(){ /* no camera — kept for flow compatibility */ }
+  return {collect,resetForm,stopCamera,get:()=>player};
 })();
 
 /* ================= LEADERBOARD STORE ================= */
@@ -763,11 +714,11 @@ const Board=(function(){
     box.innerHTML=list.slice(0,15).map((e,i)=>{
       const medal=['🥇','🥈','🥉'][i]||('#'+(i+1));
       const me=(highlightTs&&e.ts===highlightTs)?' me':'';
-      const av=e.photo?('<img src="'+e.photo+'" alt=""/>'):'<div class="lb-noimg">👤</div>';
+      const initial=esc((e.name||'?').trim().charAt(0).toUpperCase())||'?';
       const co=e.company?'<div class="lb-co">'+esc(e.company)+'</div>':'';
       return '<div class="lb-row'+me+'">'
         +'<div class="lb-rank">'+medal+'</div>'
-        +'<div class="lb-av">'+av+'</div>'
+        +'<div class="lb-av"><div class="lb-noimg">'+initial+'</div></div>'
         +'<div class="lb-info"><div class="lb-name">'+esc(e.name)+'</div>'+co+'</div>'
         +'<div class="lb-meta"><div class="lb-score">'+e.score+'</div><div class="lb-time">'+e.time.toFixed(1)+'s</div></div>'
         +'</div>';
@@ -852,19 +803,14 @@ const Game=(function(){
     updateIntegrity();
     document.getElementById('s1count').textContent='0';
 
-    const area=conv.getBoundingClientRect();
     // shuffle
     const items=INGREDIENTS.slice().sort(()=>Math.random()-0.5);
-    const cols=6, cellW=100/cols;
     items.forEach((ing,i)=>{
       const t=document.createElement('div');
       t.className='token float'+(ing.good?'':' burnt');
       t.innerHTML='<div class="emoji">'+ing.emoji+'</div><div class="name">'+ing.name+'</div>';
       t.dataset.good=ing.good?'1':'0';
       t.dataset.emoji=ing.emoji;
-      const col=i%cols, row=Math.floor(i/cols);
-      t.style.left='calc('+(col*cellW+cellW/2)+'% - 45px)';
-      t.style.top=(14+row*115)+'px';
       t.style.animationDelay=(Math.random()*2)+'s';
       conv.appendChild(t);
       makeDraggable(t, onIngredientDrop);
@@ -878,7 +824,38 @@ const Game=(function(){
       t.addEventListener('pointercancel', ()=>hideIngTip());
     });
 
+    layoutStage1Tokens();
+    if(!_s1resizeBound){
+      _s1resizeBound=true;
+      window.addEventListener('resize', ()=>{ if(document.getElementById('stage1').classList.contains('active')) layoutStage1Tokens(); });
+    }
     registerZones([{el:document.getElementById('potZone'),name:'pot'}]);
+  }
+
+  // Responsive grid: fit all remaining ingredient tiles to the conveyor,
+  // adapting column count to the screen's aspect (works on phones in portrait).
+  let _s1resizeBound=false;
+  function layoutStage1Tokens(){
+    const conv=document.getElementById('conveyor');
+    const toks=[...conv.querySelectorAll('.token')];
+    if(!toks.length) return;
+    const cw=conv.clientWidth, ch=conv.clientHeight||conv.getBoundingClientRect().height;
+    const aspect=cw/Math.max(1,ch);
+    let cols=Math.round(Math.sqrt(toks.length*aspect));
+    cols=Math.max(3,Math.min(8,cols||4));
+    const gap=6, rows=Math.ceil(toks.length/cols);
+    const cellW=cw/cols, rowH=ch/rows;
+    const size=Math.max(44,Math.min(104,Math.min(cellW-gap,rowH-gap)));
+    toks.forEach((t,i)=>{
+      const col=i%cols, row=Math.floor(i/cols);
+      t.style.width=size+'px'; t.style.height=size+'px';
+      t.style.borderRadius=Math.round(size*0.2)+'px';
+      t.style.left=Math.round(col*cellW+(cellW-size)/2)+'px';
+      t.style.top=Math.round(row*rowH+(rowH-size)/2)+'px';
+      const em=t.querySelector('.emoji'); if(em) em.style.fontSize=Math.round(size*0.46)+'px';
+      const nm=t.querySelector('.name'); if(nm) nm.style.fontSize=Math.max(8,Math.round(size*0.145))+'px';
+      t._home={left:t.style.left, top:t.style.top};
+    });
   }
 
   function onIngredientDrop(el, x, y){
@@ -1148,11 +1125,10 @@ const Game=(function(){
     if(state.timeBonus) badges.innerHTML+='<span class="badge" title="Speed">⚡</span>';
     if(cls==='master') badges.innerHTML+='<span class="badge" title="Claypot Master">🏆</span>';
 
-    // player badge (photo + name)
+    // player badge (name)
     const p=Reg.get();
     const pb=document.getElementById('resultPlayer');
-    const av=p.photo ? '<img src="'+p.photo+'" class="pb-photo" alt="you"/>' : '<div class="pb-photo">🍲</div>';
-    pb.innerHTML=av+'<div class="pb-name">Great cooking, '+(esc(p.name)||'Chef')+'!</div>'+(p.company?'<div class="pb-co">'+esc(p.company)+'</div>':'');
+    pb.innerHTML='<div class="pb-photo">🍲</div><div class="pb-name">Great cooking, '+(esc(p.name)||'Chef')+'!</div>'+(p.company?'<div class="pb-co">'+esc(p.company)+'</div>':'');
 
     // save to leaderboard (once per result)
     if(!state.saved){
@@ -1160,7 +1136,6 @@ const Game=(function(){
       Board.add({
         name:p.name||'Anonymous Chef',
         company:p.company||'',
-        photo:p.photo||null,
         score:final,
         rank:rank,
         time:Number(state.cookTime.toFixed(1)),
@@ -1248,17 +1223,8 @@ const Game=(function(){
   function showLeaderboard(){ Sound.resume(); Board.setHighlight(null); Board.render(); show('leaderboard'); }
   function viewLeaderboard(){ Board.render(); show('leaderboard'); }
   function playAgain(){ Reg.resetForm(); goRegister(); }
-  function savePhoto(){
-    const p=Reg.get();
-    if(!p.photo){ toast('No photo captured for this round.','bad'); return; }
-    const a=document.createElement('a');
-    a.href=p.photo;
-    a.download='claypot-fica-'+((p.name||'chef').replace(/[^a-z0-9]+/gi,'-').toLowerCase())+'.jpg';
-    document.body.appendChild(a); a.click(); a.remove();
-    toast('Photo downloaded 📸','good');
-  }
 
-  return {goRegister,backToWelcome,startGame,showLeaderboard,viewLeaderboard,playAgain,savePhoto,startCooking,showResults};
+  return {goRegister,backToWelcome,startGame,showLeaderboard,viewLeaderboard,playAgain,startCooking,showResults};
 })();
 
 // recompute zone rects on resize (rects read live, so nothing needed, but keep pots sharp)
