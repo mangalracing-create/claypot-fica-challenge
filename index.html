@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Claypot FICA Challenge — Cook Faster. Archive Smarter.</title>
+<style>
+  :root{
+    --wood-dark:#3a2416;
+    --wood:#5a3a22;
+    --wood-light:#7a4f2e;
+    --chili:#d9342b;
+    --chili-dark:#a81f1a;
+    --gold:#f4b301;
+    --gold-light:#ffd54a;
+    --cream:#fff4e0;
+    --green:#3fae52;
+    --green-dark:#2f8a40;
+    --steam:#fff;
+    --ink:#2b1a0e;
+    --shadow:rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 20% 10%, #ffdf9e 0%, transparent 45%),
+      radial-gradient(circle at 85% 90%, #ffb066 0%, transparent 45%),
+      linear-gradient(160deg,#7a4f2e,#3a2416);
+    overflow:hidden;
+    user-select:none;
+    touch-action:none;
+  }
+  #game{
+    position:relative;
+    width:100vw;height:100vh;
+    max-width:100%;max-height:100%;
+    overflow:hidden;
+  }
+
+  /* lantern string decoration */
+  .lanterns{position:absolute;top:0;left:0;right:0;height:60px;display:flex;justify-content:space-around;pointer-events:none;z-index:2;}
+  .lantern{width:26px;height:34px;background:var(--chili);border-radius:50% 50% 45% 45%;position:relative;box-shadow:inset -4px -4px 0 rgba(0,0,0,.15);animation:sway 3s ease-in-out infinite;}
+  .lantern::before{content:"";position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:3px;height:10px;background:#3a2416;}
+  .lantern::after{content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:8px;height:8px;background:var(--gold);border-radius:2px;}
+  .lantern:nth-child(2n){animation-delay:.6s;background:var(--gold);}
+  .lantern:nth-child(3n){animation-delay:1.2s;}
+  @keyframes sway{0%,100%{transform:rotate(-5deg);}50%{transform:rotate(5deg);}}
+
+  .screen{
+    position:absolute;inset:0;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    animation:fadeIn .5s ease;
+  }
+  .screen.active{display:flex;}
+  @keyframes fadeIn{from{opacity:0;transform:scale(.98);}to{opacity:1;transform:scale(1);}}
+
+  h1{font-size:clamp(28px,5vw,58px);margin:.1em 0;color:var(--gold-light);text-shadow:3px 3px 0 var(--chili-dark),5px 5px 0 rgba(0,0,0,.3);text-align:center;letter-spacing:1px;}
+  h2{font-size:clamp(20px,3vw,34px);margin:.2em 0;color:var(--cream);text-shadow:2px 2px 0 rgba(0,0,0,.35);text-align:center;}
+  .sub{font-size:clamp(15px,2vw,22px);color:var(--cream);text-align:center;max-width:760px;line-height:1.4;opacity:.95;}
+
+  .btn{
+    cursor:pointer;border:none;
+    font-family:inherit;font-weight:bold;
+    font-size:clamp(17px,2.4vw,26px);
+    color:#fff;
+    background:linear-gradient(180deg,var(--chili),var(--chili-dark));
+    padding:16px 42px;border-radius:50px;
+    box-shadow:0 6px 0 #7a1512,0 10px 18px var(--shadow);
+    transition:transform .08s, box-shadow .08s;
+    letter-spacing:.5px;
+    margin-top:10px;
+  }
+  .btn:active{transform:translateY(4px);box-shadow:0 2px 0 #7a1512,0 5px 10px var(--shadow);}
+  .btn.gold{background:linear-gradient(180deg,var(--gold-light),var(--gold));color:var(--ink);box-shadow:0 6px 0 #b98600,0 10px 18px var(--shadow);}
+  .btn.gold:active{box-shadow:0 2px 0 #b98600,0 5px 10px var(--shadow);}
+  .btn:disabled{filter:grayscale(.6) brightness(.9);cursor:not-allowed;}
+
+  /* ---------- HUD ---------- */
+  .hud{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 18px;z-index:5;pointer-events:none;}
+  .hud .pill{background:rgba(0,0,0,.4);backdrop-filter:blur(3px);border:2px solid var(--gold);border-radius:16px;padding:8px 14px;color:var(--cream);font-weight:bold;font-size:clamp(13px,1.6vw,18px);box-shadow:0 4px 10px var(--shadow);}
+  .hud .pill b{color:var(--gold-light);}
+  .stage-title{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;background:var(--chili);color:#fff;padding:8px 24px;border-radius:0 0 16px 16px;font-weight:bold;font-size:clamp(15px,2vw,22px);box-shadow:0 4px 10px var(--shadow);text-align:center;}
+
+  /* ---------- Meter ---------- */
+  .meter-wrap{width:min(420px,80vw);margin:6px auto;}
+  .meter-label{display:flex;justify-content:space-between;color:var(--cream);font-weight:bold;font-size:clamp(13px,1.6vw,17px);margin-bottom:4px;text-shadow:1px 1px 0 rgba(0,0,0,.4);}
+  .meter{height:22px;background:rgba(0,0,0,.35);border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.25);}
+  .meter-fill{height:100%;width:0%;border-radius:10px;transition:width .5s ease, background .5s;}
+  .meter-fill.integrity{background:linear-gradient(90deg,#ff5b4a,#ffd54a,#3fae52);}
+  .meter-fill.load{background:linear-gradient(90deg,#3fae52,#ffd54a,#ff5b4a);}
+
+  /* ---------- Claypot ---------- */
+  .claypot{
+    position:relative;width:clamp(180px,26vw,300px);height:clamp(150px,22vw,240px);
+    filter:drop-shadow(0 12px 14px var(--shadow));
+  }
+  .pot-body{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;height:72%;background:radial-gradient(ellipse at 40% 30%, #6b5040, #2e2018 80%);border-radius:14% 14% 42% 42%/10% 10% 60% 60%;border:4px solid #1c130c;}
+  .pot-body::after{content:"";position:absolute;top:14%;left:8%;right:8%;height:34%;border-radius:50%;background:rgba(255,255,255,.06);}
+  .pot-rim{position:absolute;top:16%;left:50%;transform:translateX(-50%);width:104%;height:22%;background:linear-gradient(180deg,#4a3627,#2e2018);border-radius:50%;border:4px solid #1c130c;}
+  .pot-rice{position:absolute;top:20%;left:50%;transform:translateX(-50%);width:88%;height:14%;background:radial-gradient(ellipse,#fff9ec,#f0e2c0);border-radius:50%;box-shadow:inset 0 -3px 6px rgba(0,0,0,.15);}
+  .pot-handle{position:absolute;top:26%;width:22%;height:14%;background:#2e2018;border:4px solid #1c130c;border-radius:40%;}
+  .pot-handle.l{left:-12%;}.pot-handle.r{right:-12%;}
+  .pot-toppings{position:absolute;top:19%;left:50%;transform:translateX(-50%);width:80%;height:20%;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:2px;font-size:clamp(14px,2.4vw,26px);pointer-events:none;}
+
+  .steam{position:absolute;bottom:100%;left:50%;width:16px;height:60px;background:linear-gradient(0deg,rgba(255,255,255,0),rgba(255,255,255,.6));border-radius:50%;filter:blur(4px);opacity:0;animation:steam 2.6s ease-in infinite;}
+  .steam.s2{left:38%;animation-delay:.8s;}
+  .steam.s3{left:62%;animation-delay:1.5s;}
+  @keyframes steam{0%{opacity:0;transform:translate(-50%,10px) scale(.6);}30%{opacity:.7;}100%{opacity:0;transform:translate(-50%,-70px) scale(1.4);}}
+
+  .pot-pulse{animation:potPulse .4s ease;}
+  @keyframes potPulse{0%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.06);}100%{transform:translateX(-50%) scale(1);}}
+
+  /* ---------- Stage 1 ingredients ---------- */
+  #stage1 .play-area{position:absolute;inset:0;}
+  .pot-zone{position:absolute;bottom:6%;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;z-index:3;}
+  .pot-zone .hint{color:var(--gold-light);font-weight:bold;margin-top:8px;font-size:clamp(13px,1.7vw,18px);text-shadow:1px 1px 0 rgba(0,0,0,.5);}
+  .pot-zone.drop-hover .claypot{filter:drop-shadow(0 0 20px var(--gold)) drop-shadow(0 12px 14px var(--shadow));}
+
+  .conveyor{position:absolute;top:96px;left:0;right:0;bottom:38%;overflow:hidden;}
+  .token{
+    position:absolute;
+    width:clamp(72px,10vw,104px);height:clamp(72px,10vw,104px);
+    border-radius:22px;
+    background:linear-gradient(180deg,var(--cream),#ffe9c2);
+    border:3px solid var(--wood);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    box-shadow:0 6px 12px var(--shadow);
+    cursor:grab;touch-action:none;
+    z-index:4;
+  }
+  .token .emoji{font-size:clamp(30px,5vw,48px);line-height:1;pointer-events:none;}
+  .token .name{font-size:clamp(9px,1.3vw,13px);font-weight:bold;margin-top:2px;color:var(--wood-dark);text-align:center;pointer-events:none;line-height:1.05;padding:0 2px;}
+  .token.dragging{cursor:grabbing;z-index:999;box-shadow:0 14px 26px rgba(0,0,0,.5);filter:brightness(1.06);}
+  .token.burnt{background:linear-gradient(180deg,#5a4433,#2e2018);border-color:#000;}
+  .token.burnt .name{color:#ffd;}
+
+  .float{animation:bob 3s ease-in-out infinite;}
+  @keyframes bob{0%,100%{margin-top:0;}50%{margin-top:-10px;}}
+
+  /* ---------- Stage 2 ---------- */
+  #stage2 .bins{position:absolute;bottom:5%;left:0;right:0;display:flex;justify-content:center;gap:min(6vw,60px);z-index:2;}
+  .bin{width:min(38vw,360px);min-height:150px;border-radius:20px;border:4px dashed rgba(255,255,255,.5);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:12px;color:#fff;transition:transform .1s, box-shadow .1s, background .2s;}
+  .bin.active-pot{background:linear-gradient(180deg,rgba(217,52,43,.35),rgba(168,31,26,.5));}
+  .bin.archive{background:linear-gradient(180deg,rgba(63,174,82,.35),rgba(47,138,64,.5));}
+  .bin .bin-title{font-weight:bold;font-size:clamp(15px,2vw,22px);text-shadow:1px 1px 0 rgba(0,0,0,.4);text-align:center;}
+  .bin .bin-sub{font-size:clamp(10px,1.4vw,13px);opacity:.9;text-align:center;margin-bottom:6px;}
+  .bin .bin-icon{font-size:clamp(26px,4vw,40px);}
+  .bin.drop-hover{transform:scale(1.04);box-shadow:0 0 26px var(--gold);border-style:solid;border-color:var(--gold);}
+  .bin .caught{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:6px;}
+  .mini-card{background:rgba(255,255,255,.9);color:var(--ink);border-radius:8px;padding:3px 7px;font-size:clamp(8px,1.1vw,11px);font-weight:bold;box-shadow:0 2px 4px var(--shadow);}
+
+  #stage2 .card-stack{position:absolute;top:152px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;z-index:3;}
+  .data-card{
+    width:min(72vw,340px);
+    background:linear-gradient(180deg,#fff,#fff2d8);
+    border:3px solid var(--wood);border-radius:16px;
+    padding:14px 18px;text-align:center;
+    box-shadow:0 8px 18px var(--shadow);
+    cursor:grab;touch-action:none;
+  }
+  .data-card .dc-icon{font-size:clamp(26px,4vw,40px);}
+  .data-card .dc-title{font-weight:bold;font-size:clamp(14px,2vw,20px);color:var(--wood-dark);margin-top:2px;}
+  .data-card .dc-tag{font-size:clamp(10px,1.4vw,13px);color:#7a4f2e;margin-top:2px;}
+  .data-card .dc-retention{margin-top:9px;font-size:clamp(11px,1.5vw,13px);font-weight:bold;border-radius:10px;padding:5px 10px;display:inline-block;}
+  .data-card .dc-retention.within{background:rgba(63,174,82,.16);color:#2f8a40;border:1px solid rgba(63,174,82,.55);}
+  .data-card .dc-retention.beyond{background:rgba(217,52,43,.14);color:#b02a20;border:1px solid rgba(217,52,43,.5);}
+  .data-card.dragging{cursor:grabbing;z-index:999;box-shadow:0 16px 30px rgba(0,0,0,.5);filter:brightness(1.03);}
+  .deck-count{color:var(--cream);font-weight:bold;margin-top:10px;text-shadow:1px 1px 0 rgba(0,0,0,.4);}
+  .retention-policy{width:min(680px,92vw);margin:8px auto 0;text-align:center;color:var(--cream);font-size:clamp(11px,1.5vw,14px);background:rgba(0,0,0,.32);border:1px solid var(--gold);border-radius:12px;padding:6px 12px;line-height:1.35;}
+  .retention-policy b{color:var(--gold-light);}
+
+  /* ---------- Stage 3 ---------- */
+  #stage3 .cook-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;}
+  #cookTimer{font-size:clamp(30px,6vw,64px);font-weight:bold;color:var(--gold-light);text-shadow:2px 2px 0 var(--chili-dark);}
+  .cook-progress{width:min(560px,86vw);}
+  #cookMsg{color:var(--cream);font-weight:bold;font-size:clamp(16px,2.4vw,24px);text-align:center;min-height:1.4em;text-shadow:1px 1px 0 rgba(0,0,0,.4);}
+  .cook-claypot{transform:scale(1.15);}
+  .heavy-steam{filter:blur(10px);opacity:.9;animation-duration:1.4s;width:34px;}
+  .compare{display:flex;gap:30px;justify-content:center;width:100%;margin-top:6px;}
+  .compare .col{text-align:center;color:var(--cream);}
+  .compare .bar{width:70px;background:rgba(0,0,0,.3);border-radius:8px;height:160px;display:flex;align-items:flex-end;overflow:hidden;border:2px solid rgba(255,255,255,.25);margin:0 auto;}
+  .compare .bar span{display:block;width:100%;border-radius:6px;transition:height 1s ease;}
+  .bar .before-fill{background:linear-gradient(0deg,#a81f1a,#ff5b4a);height:100%;}
+  .bar .after-fill{background:linear-gradient(0deg,#2f8a40,#5be072);height:0%;}
+  .compare b{font-size:clamp(18px,3vw,28px);color:var(--gold-light);}
+
+  /* ---------- Results ---------- */
+  #results .card{background:rgba(0,0,0,.35);border:3px solid var(--gold);border-radius:24px;padding:22px 26px;max-width:720px;width:92%;box-shadow:0 12px 30px var(--shadow);backdrop-filter:blur(3px);}
+  .final-score{font-size:clamp(40px,8vw,80px);font-weight:bold;color:var(--gold-light);text-shadow:3px 3px 0 var(--chili-dark);text-align:center;line-height:1;}
+  .rank{font-size:clamp(22px,4vw,38px);font-weight:bold;text-align:center;margin:6px 0;}
+  .rank.master{color:var(--gold-light);}
+  .rank.chef{color:#7be08e;}
+  .rank.apprentice{color:#ffbf6b;}
+  .rank-desc{text-align:center;color:var(--cream);font-size:clamp(13px,1.8vw,18px);margin-bottom:14px;}
+  .cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:10px 0;}
+  .cat{background:rgba(255,255,255,.08);border-radius:12px;padding:10px 12px;color:var(--cream);}
+  .cat .cat-name{font-size:clamp(11px,1.5vw,14px);opacity:.9;}
+  .cat .cat-val{font-size:clamp(16px,2.4vw,22px);font-weight:bold;color:var(--gold-light);}
+  .cat .cat-bar{height:8px;background:rgba(0,0,0,.3);border-radius:6px;margin-top:6px;overflow:hidden;}
+  .cat .cat-bar span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--green));border-radius:6px;}
+  .results-pot{margin:6px auto;}
+  .biz-msg{color:var(--cream);text-align:center;font-size:clamp(12px,1.6vw,15px);margin-top:12px;line-height:1.5;opacity:.95;}
+  .biz-msg b{color:var(--gold-light);}
+
+  /* ---------- Player badge on results ---------- */
+  .player-badge{display:flex;flex-direction:column;align-items:center;margin-bottom:6px;}
+  .pb-photo{width:84px;height:84px;border-radius:50%;object-fit:cover;border:4px solid var(--gold);box-shadow:0 4px 12px var(--shadow);background:#2e2018;display:flex;align-items:center;justify-content:center;font-size:38px;}
+  .pb-name{color:var(--gold-light);font-weight:bold;font-size:clamp(15px,2.2vw,20px);margin-top:6px;text-shadow:1px 1px 0 rgba(0,0,0,.4);}
+  .pb-co{color:var(--cream);opacity:.8;font-size:13px;}
+
+  /* ---------- Registration ---------- */
+  .reg-card{background:rgba(0,0,0,.4);border:3px solid var(--gold);border-radius:24px;padding:20px 26px;max-width:820px;width:94%;box-shadow:0 12px 30px var(--shadow);backdrop-filter:blur(3px);max-height:92vh;overflow:auto;}
+  .reg-sub{color:var(--cream);text-align:center;font-size:clamp(12px,1.7vw,16px);opacity:.9;margin:2px 0 14px;}
+  .reg-body{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;}
+  .reg-fields{flex:1 1 260px;min-width:240px;display:flex;flex-direction:column;gap:12px;}
+  .reg-fields label{color:var(--cream);font-weight:bold;font-size:clamp(12px,1.6vw,15px);display:flex;flex-direction:column;gap:4px;}
+  .reg-fields input{font-family:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:2px solid var(--wood-light);background:var(--cream);color:var(--ink);}
+  .reg-fields input:focus{outline:none;border-color:var(--gold);}
+  .cam-col{flex:0 0 240px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .cam-box{width:220px;height:220px;border-radius:18px;overflow:hidden;background:#2e2018;border:3px solid var(--gold);position:relative;display:flex;align-items:center;justify-content:center;}
+  .cam-box video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:none;}
+  .cam-box img{width:100%;height:100%;object-fit:cover;display:none;}
+  .cam-placeholder{color:var(--cream);text-align:center;font-size:15px;line-height:1.4;opacity:.85;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .cam-placeholder .big{font-size:40px;}
+  .cam-controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .btn.small{font-size:clamp(13px,1.6vw,16px);padding:9px 18px;box-shadow:0 4px 0 #7a1512,0 6px 12px var(--shadow);margin-top:0;}
+  .btn.small.gold{box-shadow:0 4px 0 #b98600,0 6px 12px var(--shadow);}
+  .btn.small:active{transform:translateY(3px);}
+  .upload-alt{color:var(--cream);font-size:12px;opacity:.85;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .upload-alt input{font-size:11px;max-width:200px;color:var(--cream);}
+  .reg-actions{display:flex;gap:14px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
+  .reg-error{color:#ff8a7a;text-align:center;font-weight:bold;margin-top:8px;min-height:1.2em;font-size:14px;}
+  .btn.ghost{background:rgba(255,255,255,.14);box-shadow:0 5px 0 rgba(0,0,0,.35),0 8px 14px var(--shadow);}
+  .btn.ghost:active{box-shadow:0 2px 0 rgba(0,0,0,.35);}
+
+  /* ---------- Leaderboard ---------- */
+  .lb-card{background:rgba(0,0,0,.42);border:3px solid var(--gold);border-radius:24px;padding:18px 22px;max-width:640px;width:94%;box-shadow:0 12px 30px var(--shadow);backdrop-filter:blur(3px);max-height:94vh;display:flex;flex-direction:column;}
+  .lb-filters{display:flex;gap:8px;justify-content:center;margin:6px 0 10px;}
+  .lb-tab{cursor:pointer;border:2px solid var(--gold);background:transparent;color:var(--cream);font-family:inherit;font-weight:bold;padding:6px 20px;border-radius:20px;font-size:14px;}
+  .lb-tab.active{background:var(--gold);color:var(--ink);}
+  .lb-fastest{text-align:center;color:var(--cream);font-size:clamp(12px,1.6vw,15px);margin-bottom:8px;min-height:1.2em;}
+  .lb-fastest b{color:var(--gold-light);}
+  .lb-list{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;padding-right:4px;min-height:120px;}
+  .lb-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);border-radius:12px;padding:6px 10px;}
+  .lb-row.me{background:rgba(244,179,1,.28);border:2px solid var(--gold);}
+  .lb-rank{font-size:20px;font-weight:bold;width:40px;text-align:center;color:var(--gold-light);flex:0 0 40px;}
+  .lb-av img,.lb-noimg{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);background:#2e2018;display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .lb-info{flex:1;min-width:0;}
+  .lb-name{color:var(--cream);font-weight:bold;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lb-co{color:var(--cream);opacity:.7;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lb-meta{text-align:right;}
+  .lb-score{color:var(--gold-light);font-weight:bold;font-size:18px;}
+  .lb-time{color:var(--cream);opacity:.8;font-size:12px;}
+  .lb-empty{color:var(--cream);text-align:center;padding:30px;opacity:.85;}
+  .lb-actions{display:flex;justify-content:space-between;gap:10px;margin-top:12px;}
+  .btn.danger{background:linear-gradient(180deg,#8a8a8a,#5a5a5a);box-shadow:0 4px 0 #333,0 6px 12px var(--shadow);}
+
+  .welcome-btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;}
+
+  /* ---------- Ingredient tooltip ---------- */
+  .ing-tip{position:absolute;z-index:1200;max-width:260px;background:rgba(28,19,12,.96);border:2px solid var(--gold);border-radius:14px;padding:10px 13px;box-shadow:0 8px 22px rgba(0,0,0,.5);opacity:0;transform:translateY(6px) scale(.96);transition:opacity .15s, transform .15s;pointer-events:none;color:var(--cream);}
+  .ing-tip.show{opacity:1;transform:translateY(0) scale(1);}
+  .ing-tip .tip-head{display:flex;align-items:center;gap:8px;font-weight:bold;font-size:15px;color:var(--gold-light);}
+  .ing-tip .tip-head .tip-emoji{font-size:22px;}
+  .ing-tip .tip-rep{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.7px;opacity:.7;margin-top:7px;}
+  .ing-tip .tip-rep-val{font-size:13px;font-weight:bold;margin-bottom:5px;}
+  .ing-tip .tip-why{font-size:12.5px;line-height:1.35;opacity:.95;}
+  .ing-tip .tip-prompt{font-size:11.5px;font-style:italic;opacity:.8;margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.15);}
+  .token.selected{outline:3px solid var(--gold);outline-offset:2px;}
+
+  /* toast */
+  #toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.8);background:rgba(0,0,0,.82);color:#fff;padding:14px 26px;border-radius:16px;font-weight:bold;font-size:clamp(15px,2.2vw,22px);opacity:0;pointer-events:none;z-index:1000;transition:all .25s;text-align:center;max-width:80vw;border:2px solid var(--gold);}
+  #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  #toast.good{border-color:var(--green);}
+  #toast.bad{border-color:var(--chili);}
+
+  .pop{position:absolute;font-weight:bold;font-size:clamp(16px,2.4vw,26px);pointer-events:none;z-index:1001;animation:popUp 1s ease forwards;text-shadow:1px 1px 2px rgba(0,0,0,.6);}
+  .pop.plus{color:#7be08e;}
+  .pop.minus{color:#ff6b5b;}
+  @keyframes popUp{0%{opacity:0;transform:translateY(0) scale(.6);}20%{opacity:1;transform:translateY(-12px) scale(1.1);}100%{opacity:0;transform:translateY(-60px) scale(1);}}
+
+  .badge{display:inline-block;background:radial-gradient(circle at 40% 30%,var(--gold-light),var(--gold));color:var(--ink);border-radius:50%;width:70px;height:70px;line-height:70px;text-align:center;font-size:34px;box-shadow:0 6px 14px var(--shadow),inset 0 0 0 4px rgba(255,255,255,.4);margin:4px;}
+
+  .confetti{position:absolute;width:10px;height:14px;top:-20px;z-index:900;pointer-events:none;}
+
+  .rotate-note{display:none;position:absolute;inset:0;background:var(--wood-dark);color:var(--cream);z-index:2000;text-align:center;padding:40px;flex-direction:column;align-items:center;justify-content:center;font-size:20px;}
+  @media (max-aspect-ratio:1/1){
+    .rotate-note{display:flex;}
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="lanterns" id="lanterns"></div>
+
+  <!-- ============ WELCOME ============ -->
+  <section class="screen active" id="welcome">
+    <div style="font-size:clamp(70px,14vw,150px);filter:drop-shadow(0 8px 10px rgba(0,0,0,.4));">🍲</div>
+    <h1>Claypot FICA Challenge</h1>
+    <h2 style="color:var(--gold-light);font-size:clamp(16px,2.4vw,26px);margin-top:-4px;">Cook Faster. Archive Smarter.</h2>
+    <p class="sub">Can you create the perfect blend of Finance data, performance and archival? Pick the right ingredients, archive historical data smartly, and race through month-end reporting!</p>
+    <div class="welcome-btns">
+      <button class="btn gold" onclick="Game.goRegister()">🔥 Tap to Start Cooking</button>
+      <button class="btn ghost" onclick="Game.showLeaderboard()">🏆 Leaderboard</button>
+    </div>
+    <p class="sub" style="font-size:13px;opacity:.7;margin-top:18px;">Best on a landscape touchscreen or wide display • 2–3 min</p>
+  </section>
+
+  <!-- ============ REGISTRATION ============ -->
+  <section class="screen" id="register">
+    <div class="reg-card">
+      <h2 style="margin-top:0;">👨‍🍳 Player Check-In</h2>
+      <p class="reg-sub">Register to join the daily leaderboard and take home your Claypot photo!</p>
+      <div class="reg-body">
+        <div class="reg-fields">
+          <label>Your Name *<input id="regName" type="text" maxlength="24" placeholder="e.g. Arpit" autocomplete="off" /></label>
+          <label>Company / Team<input id="regCompany" type="text" maxlength="28" placeholder="e.g. Finance Transformation" autocomplete="off" /></label>
+          <label>Email (optional)<input id="regEmail" type="email" maxlength="60" placeholder="name@company.com" autocomplete="off" /></label>
+        </div>
+        <div class="cam-col">
+          <div class="cam-box" id="camBox">
+            <video id="camVideo" autoplay playsinline muted></video>
+            <img id="camPhoto" alt="captured photo" />
+            <div class="cam-placeholder" id="camPlaceholder"><span class="big">📷</span><span>Snap a photo for<br/>your leaderboard card</span></div>
+          </div>
+          <div class="cam-controls">
+            <button class="btn small ghost" id="camStartBtn" onclick="Reg.enableCamera()">Enable Camera</button>
+            <button class="btn small gold" id="camSnapBtn" style="display:none" onclick="Reg.snap()">📸 Capture</button>
+            <button class="btn small ghost" id="camRetakeBtn" style="display:none" onclick="Reg.retake()">↺ Retake</button>
+          </div>
+          <label class="upload-alt">or upload a photo<input type="file" accept="image/*" id="camUpload" onchange="Reg.upload(event)" /></label>
+        </div>
+      </div>
+      <div class="reg-error" id="regError"></div>
+      <div class="reg-actions">
+        <button class="btn ghost" onclick="Game.backToWelcome()">← Back</button>
+        <button class="btn gold" onclick="Game.startGame()">Start Cooking →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STAGE 1 ============ -->
+  <section class="screen" id="stage1">
+    <div class="stage-title">Stage 1 · Pick the Right Ingredients</div>
+    <div class="hud">
+      <div class="pill">Score: <b id="s1score">0</b></div>
+      <div class="pill">In pot: <b id="s1count">0</b> / 5</div>
+    </div>
+    <div class="play-area">
+      <div style="position:absolute;top:64px;left:0;right:0;">
+        <div class="meter-wrap">
+          <div class="meter-label"><span>🛡️ Data Integrity Meter</span><span id="integrityPct">0%</span></div>
+          <div class="meter"><div class="meter-fill integrity" id="integrityFill"></div></div>
+        </div>
+      </div>
+      <div class="conveyor" id="conveyor"></div>
+      <div class="pot-zone" id="potZone">
+        <div class="claypot" id="s1pot">
+          <div class="steam"></div><div class="steam s2"></div><div class="steam s3"></div>
+          <div class="pot-handle l"></div><div class="pot-handle r"></div>
+          <div class="pot-body"></div>
+          <div class="pot-rim"></div>
+          <div class="pot-rice"></div>
+          <div class="pot-toppings" id="s1toppings"></div>
+        </div>
+        <div class="hint">Drag the correct Finance ingredients in here 👆<br/><span style="font-weight:normal;opacity:.85;font-size:.85em;">Tap or hover any ingredient to see why it belongs</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STAGE 2 ============ -->
+  <section class="screen" id="stage2">
+    <div class="stage-title">Stage 2 · Active Pot or Archive Pantry?</div>
+    <div class="hud">
+      <div class="pill">Score: <b id="s2score">0</b></div>
+      <div class="pill">Sorted: <b id="s2count">0</b> / 7</div>
+    </div>
+    <div style="position:absolute;top:60px;left:0;right:0;">
+      <div class="meter-wrap">
+        <div class="meter-label"><span>💾 Database Load Meter</span><span id="loadPct">100%</span></div>
+        <div class="meter"><div class="meter-fill load" id="loadFill" style="width:100%"></div></div>
+      </div>
+      <div class="retention-policy">📅 Retention policy: data <b>within 7 years</b> stays in the Active Claypot · data <b>beyond 7 years</b> is eligible for the Archive Pantry</div>
+    </div>
+    <div class="card-stack" id="cardStack"></div>
+    <div class="bins">
+      <div class="bin active-pot" data-bin="active">
+        <div class="bin-icon">🍲</div>
+        <div class="bin-title">ACTIVE CLAYPOT</div>
+        <div class="bin-sub">Day-to-day data · within 7-yr retention</div>
+        <div class="caught" id="activeCaught"></div>
+      </div>
+      <div class="bin archive" data-bin="archive">
+        <div class="bin-icon">📦</div>
+        <div class="bin-title">ARCHIVE PANTRY</div>
+        <div class="bin-sub">Historical data beyond 7 years · preserved safely</div>
+        <div class="caught" id="archiveCaught"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STAGE 3 ============ -->
+  <section class="screen" id="stage3">
+    <div class="stage-title">Stage 3 · Month-End Cooking Challenge</div>
+    <div class="hud">
+      <div class="pill">Score: <b id="s3score">0</b></div>
+      <div class="pill">Target: <b>under 12s</b></div>
+    </div>
+    <div class="cook-wrap">
+      <div id="cookTimer">0.0s</div>
+      <div class="claypot cook-claypot" id="s3pot">
+        <div class="steam"></div><div class="steam s2"></div><div class="steam s3"></div>
+        <div class="pot-handle l"></div><div class="pot-handle r"></div>
+        <div class="pot-body"></div>
+        <div class="pot-rim"></div>
+        <div class="pot-rice"></div>
+        <div class="pot-toppings">🍗🍄🥬</div>
+      </div>
+      <div class="cook-progress">
+        <div class="meter-label"><span>📊 Month-End Reporting</span><span id="cookPct">0%</span></div>
+        <div class="meter"><div class="meter-fill" id="cookFill" style="background:linear-gradient(90deg,var(--gold),var(--green));"></div></div>
+      </div>
+      <div id="cookMsg">Press start to run month-end reporting…</div>
+      <button class="btn gold" id="cookBtn" onclick="Game.startCooking()">⏱️ START MONTH-END COOKING</button>
+      <div class="compare" id="compareBox" style="display:none;">
+        <div class="col"><div class="bar"><span class="before-fill"></span></div><div>Before</div><b>100%</b></div>
+        <div class="col"><div class="bar"><span class="after-fill" id="afterFill"></span></div><div>After</div><b id="afterPct">&lt;10%</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section class="screen" id="results">
+    <div class="card">
+      <div class="player-badge" id="resultPlayer"></div>
+      <h2 style="margin-top:0;">🍲 Your Finance Claypot Is Ready!</h2>
+      <div class="final-score"><span id="finalScore">0</span><span style="font-size:.35em;color:var(--cream);"> / 2000</span></div>
+      <div class="rank" id="rankName">—</div>
+      <div class="rank-desc" id="rankDesc"></div>
+      <div id="badges" style="text-align:center;"></div>
+      <div class="cat-grid">
+        <div class="cat"><div class="cat-name">🛡️ Data Integrity</div><div class="cat-val" id="catIntegrity">0%</div><div class="cat-bar"><span id="barIntegrity"></span></div></div>
+        <div class="cat"><div class="cat-name">📦 Archival Accuracy</div><div class="cat-val" id="catArchival">0%</div><div class="cat-bar"><span id="barArchival"></span></div></div>
+        <div class="cat"><div class="cat-name">💾 Database Efficiency</div><div class="cat-val" id="catEfficiency">0%</div><div class="cat-bar"><span id="barEfficiency"></span></div></div>
+        <div class="cat"><div class="cat-name">⏱️ Month-End Speed</div><div class="cat-val" id="catSpeed">0%</div><div class="cat-bar"><span id="barSpeed"></span></div></div>
+      </div>
+      <div class="biz-msg">
+        <b>Over 90% improvement in month-end reporting</b> — faster financial processing and quicker access to business insights, with <b>intelligent archival of high-volume tables</b> for a leaner, more scalable SAP IS-U Finance platform.
+      </div>
+      <div class="welcome-btns" style="justify-content:center;margin-top:6px;">
+        <button class="btn gold" onclick="Game.viewLeaderboard()">🏆 View Leaderboard</button>
+        <button class="btn ghost" onclick="Game.savePhoto()">📸 Save My Photo</button>
+        <button class="btn" onclick="Game.playAgain()">🔁 Next Player</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LEADERBOARD ============ -->
+  <section class="screen" id="leaderboard">
+    <div class="lb-card">
+      <h2 style="margin:0 0 2px;">🏆 Claypot Leaderboard</h2>
+      <div class="lb-filters">
+        <button class="lb-tab active" data-filter="today" onclick="Board.setFilter('today',this)">Today</button>
+        <button class="lb-tab" data-filter="all" onclick="Board.setFilter('all',this)">All-Time</button>
+      </div>
+      <div class="lb-fastest" id="lbFastest"></div>
+      <div class="lb-list" id="lbList"></div>
+      <div class="lb-actions">
+        <button class="btn ghost" onclick="Game.backToWelcome()">🏠 Home</button>
+        <button class="btn small" onclick="window.open('leaderboard.html','_blank')">📺 Big Screen ↗</button>
+        <button class="btn danger small" onclick="Board.clear()">🗑️ Clear Board</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="ingTip" class="ing-tip"></div>
+  <div id="toast"></div>
+  <div class="rotate-note">📱↻<br/><br/>Please rotate your device to <b>landscape</b> for the best Claypot experience.</div>
+</div>
+
+<!-- Shared leaderboard data layer: Firebase Realtime DB (cross-device) with automatic localStorage fallback -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/store.js"></script>
+
+<script>
+"use strict";
+
+/* ---------- lanterns ---------- */
+(function(){
+  const l=document.getElementById('lanterns');
+  for(let i=0;i<14;i++){const d=document.createElement('div');d.className='lantern';l.appendChild(d);}
+})();
+
+/* ---------- audio (WebAudio blips, no assets) ---------- */
+const Sound=(function(){
+  let ctx=null;
+  function ac(){ if(!ctx){ try{ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return ctx; }
+  function tone(freq,dur,type,vol){
+    const c=ac(); if(!c) return;
+    const o=c.createOscillator(),g=c.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    g.gain.value=vol||0.15;
+    o.connect(g); g.connect(c.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+(dur||0.15));
+    o.stop(c.currentTime+(dur||0.15));
+  }
+  return {
+    good(){tone(660,0.12,'triangle',0.2); setTimeout(()=>tone(880,0.14,'triangle',0.2),90);},
+    bad(){tone(180,0.25,'sawtooth',0.18);},
+    drop(){tone(320,0.08,'square',0.12);},
+    tick(){tone(1200,0.03,'square',0.05);},
+    win(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,0.2,'triangle',0.2),i*130));},
+    resume(){const c=ac(); if(c&&c.state==='suspended')c.resume();}
+  };
+})();
+
+/* ---------- toast + score pops ---------- */
+function toast(msg,kind){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='show '+(kind||'');
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>{t.className=t.className.replace('show','').trim();},1400);
+}
+function scorePop(x,y,text,positive){
+  const p=document.createElement('div');
+  p.className='pop '+(positive?'plus':'minus');
+  p.textContent=text;
+  p.style.left=x+'px'; p.style.top=y+'px';
+  document.getElementById('game').appendChild(p);
+  setTimeout(()=>p.remove(),1000);
+}
+
+/* ---------- ingredient info tooltip ---------- */
+let _tipTimer=null;
+function showIngTip(ing, x, y){
+  clearTimeout(_tipTimer);
+  const tip=document.getElementById('ingTip');
+  tip.className='ing-tip';
+  tip.innerHTML='<div class="tip-head"><span class="tip-emoji">'+ing.emoji+'</span><span>'+ing.name+'</span></div>'
+    +'<div class="tip-rep">Represents</div>'
+    +'<div class="tip-rep-val">'+ing.rep+'</div>'
+    +'<div class="tip-why">'+ing.why+'</div>'
+    +'<div class="tip-prompt">Would this belong in a lean, trusted Finance pot?</div>';
+  positionIngTip(x,y);
+  requestAnimationFrame(()=>tip.classList.add('show'));
+}
+function positionIngTip(x,y){
+  const tip=document.getElementById('ingTip');
+  const g=document.getElementById('game').getBoundingClientRect();
+  const w=tip.offsetWidth||240, h=tip.offsetHeight||120;
+  let lx=x-g.left+16;      // right of pointer
+  let ty=y-g.top-h-14;     // above pointer
+  if(ty<6) ty=y-g.top+22;                 // no room above -> below
+  if(lx+w>g.width-8) lx=x-g.left-w-16;     // overflow right -> flip left
+  if(lx<6) lx=6;
+  if(ty+h>g.height-6) ty=g.height-h-6;
+  tip.style.left=lx+'px'; tip.style.top=ty+'px';
+}
+function hideIngTip(){ clearTimeout(_tipTimer); document.getElementById('ingTip').classList.remove('show'); }
+function hideIngTipSoon(ms){ clearTimeout(_tipTimer); _tipTimer=setTimeout(()=>document.getElementById('ingTip').classList.remove('show'), ms||1600); }
+
+/* ---------- generic pointer drag ---------- */
+function makeDraggable(el, onDrop){
+  let dragging=false, offX=0, offY=0;
+  el._home={left:el.style.left, top:el.style.top};
+  // rect of the element's positioning context (offsetParent), which may be
+  // #conveyor (Stage 1) or the translateX(-50%) #cardStack (Stage 2).
+  function parentRect(){
+    const op=el.offsetParent||document.getElementById('game');
+    return op.getBoundingClientRect();
+  }
+  function down(e){
+    Sound.resume();
+    dragging=true;
+    const r=el.getBoundingClientRect();
+    const p=point(e);
+    offX=p.x-r.left; offY=p.y-r.top;
+    el.style.position='absolute';
+    el.style.margin='0';
+    const pr=parentRect();                    // read after position:absolute is set
+    el.style.left=(r.left-pr.left)+'px';
+    el.style.top=(r.top-pr.top)+'px';
+    el.classList.add('dragging');
+    el.classList.remove('float');
+    el.setPointerCapture&&el.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+  function move(e){
+    if(!dragging) return;
+    const pr=parentRect();
+    const p=point(e);
+    el.style.left=(p.x-pr.left-offX)+'px';
+    el.style.top=(p.y-pr.top-offY)+'px';
+    highlightZones(p.x,p.y);
+    e.preventDefault();
+  }
+  function up(e){
+    if(!dragging) return;
+    dragging=false;
+    el.classList.remove('dragging');
+    const p=point(e);
+    clearZoneHighlights();
+    onDrop(el, p.x, p.y);
+    e.preventDefault();
+  }
+  el.addEventListener('pointerdown',down);
+  el.addEventListener('pointermove',move);
+  el.addEventListener('pointerup',up);
+  el.addEventListener('pointercancel',up);
+}
+function point(e){ return {x:e.clientX, y:e.clientY}; }
+function inRect(x,y,r){ return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom; }
+
+let _zones=[];
+function registerZones(list){ _zones=list; }
+function highlightZones(x,y){
+  _zones.forEach(z=>{
+    const r=z.el.getBoundingClientRect();
+    if(inRect(x,y,r)) z.el.classList.add('drop-hover');
+    else z.el.classList.remove('drop-hover');
+  });
+}
+function clearZoneHighlights(){ _zones.forEach(z=>z.el.classList.remove('drop-hover')); }
+function zoneAt(x,y){
+  for(const z of _zones){ if(inRect(x,y,z.el.getBoundingClientRect())) return z; }
+  return null;
+}
+
+/* ================= REGISTRATION / PHOTO ================= */
+const Reg=(function(){
+  let stream=null;
+  const player={name:'',company:'',email:'',photo:null};
+  const $=id=>document.getElementById(id);
+
+  function enableCamera(){
+    Sound.resume();
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ camError('Camera not supported here — use upload below.'); return; }
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:640},audio:false})
+      .then(s=>{
+        stream=s;
+        const v=$('camVideo'); v.srcObject=s; v.style.display='block';
+        $('camPhoto').style.display='none';
+        $('camPlaceholder').style.display='none';
+        $('camStartBtn').style.display='none';
+        $('camSnapBtn').style.display='inline-block';
+        $('camRetakeBtn').style.display='none';
+      })
+      .catch(()=>{ camError('Camera blocked — allow access or use upload below.'); });
+  }
+  function camError(msg){
+    const p=$('camPlaceholder');
+    p.innerHTML='<span class="big">📷</span><span>'+msg+'</span>';
+    p.style.display='flex';
+  }
+  function snap(){
+    const v=$('camVideo');
+    if(!v.videoWidth){ return; }
+    Sound.drop();
+    const size=320, c=document.createElement('canvas'); c.width=size; c.height=size;
+    const ctx=c.getContext('2d');
+    const vw=v.videoWidth, vh=v.videoHeight, side=Math.min(vw,vh);
+    const sx=(vw-side)/2, sy=(vh-side)/2;
+    ctx.translate(size,0); ctx.scale(-1,1); // mirror to match preview
+    ctx.drawImage(v, sx,sy,side,side, 0,0,size,size);
+    player.photo=c.toDataURL('image/jpeg',0.82);
+    stopCamera();
+    showPhoto();
+  }
+  function showPhoto(){
+    const img=$('camPhoto'); img.src=player.photo; img.style.display='block';
+    $('camVideo').style.display='none';
+    $('camPlaceholder').style.display='none';
+    $('camStartBtn').style.display='none';
+    $('camSnapBtn').style.display='none';
+    $('camRetakeBtn').style.display='inline-block';
+  }
+  function retake(){
+    player.photo=null;
+    $('camPhoto').style.display='none';
+    $('camRetakeBtn').style.display='none';
+    $('camUpload').value='';
+    enableCamera();
+  }
+  function upload(e){
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    stopCamera();
+    const r=new FileReader();
+    r.onload=()=>{
+      const im=new Image();
+      im.onload=()=>{
+        const size=320, c=document.createElement('canvas'); c.width=size; c.height=size;
+        const ctx=c.getContext('2d');
+        const side=Math.min(im.width,im.height);
+        const sx=(im.width-side)/2, sy=(im.height-side)/2;
+        ctx.drawImage(im, sx,sy,side,side, 0,0,size,size);
+        player.photo=c.toDataURL('image/jpeg',0.82);
+        showPhoto();
+      };
+      im.src=r.result;
+    };
+    r.readAsDataURL(f);
+  }
+  function stopCamera(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; $('camVideo').style.display='none'; } }
+  function collect(){
+    player.name=$('regName').value.trim();
+    player.company=$('regCompany').value.trim();
+    player.email=$('regEmail').value.trim();
+    return player;
+  }
+  function resetForm(){
+    ['regName','regCompany','regEmail','camUpload'].forEach(id=>{ if($(id)) $(id).value=''; });
+    player.name=''; player.company=''; player.email=''; player.photo=null;
+    stopCamera();
+    $('camPhoto').style.display='none';
+    $('camVideo').style.display='none';
+    $('camPlaceholder').innerHTML='<span class="big">📷</span><span>Snap a photo for<br/>your leaderboard card</span>';
+    $('camPlaceholder').style.display='flex';
+    $('camStartBtn').style.display='inline-block';
+    $('camSnapBtn').style.display='none';
+    $('camRetakeBtn').style.display='none';
+    $('regError').textContent='';
+  }
+  return {enableCamera,snap,retake,upload,stopCamera,collect,resetForm,get:()=>player};
+})();
+
+/* ================= LEADERBOARD STORE ================= */
+const Board=(function(){
+  let filter='today';
+  let highlightTs=null;
+  function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function isToday(ts){ const d=new Date(ts), n=new Date(); return d.toDateString()===n.toDateString(); }
+  function setFilter(f,btn){ filter=f; document.querySelectorAll('.lb-tab').forEach(t=>t.classList.remove('active')); if(btn)btn.classList.add('active'); render(); }
+  function add(entry){ highlightTs=entry.ts; return ClaypotStore.add(entry); }
+  function load(){ return ClaypotStore.get(); }
+  function clear(){
+    if(window.confirm('Clear the entire leaderboard? This cannot be undone.')){ ClaypotStore.clearAll(); highlightTs=null; render(); }
+  }
+  function render(){
+    let list=ClaypotStore.get();
+    if(filter==='today') list=list.filter(e=>isToday(e.ts));
+    list.sort((a,b)=> b.score-a.score || a.time-b.time);
+    const box=document.getElementById('lbList');
+    const fast=document.getElementById('lbFastest');
+    if(!box) return;
+    if(list.length===0){
+      box.innerHTML='<div class="lb-empty">No scores '+(filter==='today'?'today ':'')+'yet — be the first to cook! 🍲</div>';
+      if(fast) fast.innerHTML='';
+      return;
+    }
+    const fastest=list.slice().sort((a,b)=>a.time-b.time)[0];
+    if(fast) fast.innerHTML='⚡ Fastest Month-End: <b>'+esc(fastest.name)+'</b> — '+fastest.time.toFixed(1)+'s';
+    box.innerHTML=list.slice(0,15).map((e,i)=>{
+      const medal=['🥇','🥈','🥉'][i]||('#'+(i+1));
+      const me=(highlightTs&&e.ts===highlightTs)?' me':'';
+      const av=e.photo?('<img src="'+e.photo+'" alt=""/>'):'<div class="lb-noimg">👤</div>';
+      const co=e.company?'<div class="lb-co">'+esc(e.company)+'</div>':'';
+      return '<div class="lb-row'+me+'">'
+        +'<div class="lb-rank">'+medal+'</div>'
+        +'<div class="lb-av">'+av+'</div>'
+        +'<div class="lb-info"><div class="lb-name">'+esc(e.name)+'</div>'+co+'</div>'
+        +'<div class="lb-meta"><div class="lb-score">'+e.score+'</div><div class="lb-time">'+e.time.toFixed(1)+'s</div></div>'
+        +'</div>';
+    }).join('');
+  }
+  // live refresh when the in-game leaderboard screen is visible
+  if(window.ClaypotStore){ ClaypotStore.subscribe(()=>{ const lb=document.getElementById('leaderboard'); if(lb&&lb.classList.contains('active')) render(); }); }
+  return {add,render,setFilter,clear,load,setHighlight:ts=>{highlightTs=ts;}};
+})();
+
+/* ================= GAME ================= */
+const Game=(function(){
+  const state={
+    score:0,
+    integrity:0,        // %
+    load:100,           // %
+    s1placed:0,
+    s1correctNeeded:5,
+    s2sorted:0,
+    s2total:7,
+    s2correct:0,
+    cookTime:0,
+    perfImprovement:0,
+    timeBonus:false,
+    perfBonus:false,
+    saved:false
+  };
+
+  const MAX_SCORE=2000;
+
+  function show(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  function addScore(pts){ state.score=Math.max(0,state.score+pts); refreshScores(); }
+  function refreshScores(){
+    const cap=Math.min(state.score,MAX_SCORE);
+    ['s1score','s2score','s3score'].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=cap;});
+  }
+
+  /* ---------------- STAGE 1 ---------------- */
+  const INGREDIENTS=[
+    {emoji:'🍚',name:'Rice',rep:'Core Finance master data',good:true,
+      why:'Master data such as company codes and account structures — the base layer every Finance process is built on.'},
+    {emoji:'🍗',name:'Chicken',rep:'Customer account information',good:true,
+      why:'Customer master and contract-account details used across billing, invoicing and collections.'},
+    {emoji:'🍄',name:'Mushrooms',rep:'Payments and transactions',good:true,
+      why:'Live payment postings and financial transactions currently flowing through the ledger.'},
+    {emoji:'🥬',name:'Vegetables',rep:'Reporting data',good:true,
+      why:'Current-period figures that feed month-end statements and management dashboards.'},
+    {emoji:'🥫',name:'Sauce',rep:'Business rules and processes',good:true,
+      why:'Configuration and posting rules that keep Finance processes consistent and controlled.'},
+    {emoji:'🧈',name:'Tofu',rep:'General Ledger balances',good:true,
+      why:'Reconciled GL account balances that anchor the trial balance and financial statements.'},
+    {emoji:'🐟',name:'Fish',rep:'Bank reconciliation data',good:true,
+      why:'Incoming bank statements and cleared items matched against open receivables.'},
+    {emoji:'🍤',name:'Prawn',rep:'Open invoice items',good:true,
+      why:'Outstanding invoices and open items still being tracked, dunned and collected.'},
+    {emoji:'🧂',name:'Salt',rep:'Currency & exchange rates',good:true,
+      why:'Reference exchange rates applied to postings so multi-currency balances stay accurate.'},
+    {emoji:'🌶️',name:'Pepper',rep:'Tax & compliance data',good:true,
+      why:'Tax codes and statutory rules applied to transactions for compliant reporting.'},
+    {emoji:'🍛',name:'Curry',rep:'Cost allocation rules',good:true,
+      why:'Overhead and cost-centre allocation logic that distributes costs across the ledger.'},
+    {emoji:'🔥',name:'Burnt bits',rep:'Incorrect or incomplete data',good:false,
+      why:'Records with missing fields or corrupted values that fail to reconcile.'},
+    {emoji:'🗑️',name:'Junk scraps',rep:'Stale, obsolete data',good:false,
+      why:'Outdated records that are no longer referenced by any active process.'},
+    {emoji:'💀',name:'Bad batch',rep:'Duplicate & error records',good:false,
+      why:'Duplicated postings and failed batch entries that distort account balances.'},
+    {emoji:'🦠',name:'Spoiled stock',rep:'Data with integrity errors',good:false,
+      why:'Entries that fail validation checks and break defined business rules.'},
+    {emoji:'🧪',name:'Test data',rep:'Sandbox & test records',good:false,
+      why:'Leftover test and sandbox entries that were never meant for production reporting.'}
+  ];
+
+  function buildStage1(){
+    const conv=document.getElementById('conveyor');
+    conv.innerHTML='';
+    document.getElementById('s1toppings').innerHTML='';
+    state.s1placed=0; state.integrity=0;
+    updateIntegrity();
+    document.getElementById('s1count').textContent='0';
+
+    const area=conv.getBoundingClientRect();
+    // shuffle
+    const items=INGREDIENTS.slice().sort(()=>Math.random()-0.5);
+    const cols=6, cellW=100/cols;
+    items.forEach((ing,i)=>{
+      const t=document.createElement('div');
+      t.className='token float'+(ing.good?'':' burnt');
+      t.innerHTML='<div class="emoji">'+ing.emoji+'</div><div class="name">'+ing.name+'</div>';
+      t.dataset.good=ing.good?'1':'0';
+      t.dataset.emoji=ing.emoji;
+      const col=i%cols, row=Math.floor(i/cols);
+      t.style.left='calc('+(col*cellW+cellW/2)+'% - 45px)';
+      t.style.top=(14+row*115)+'px';
+      t.style.animationDelay=(Math.random()*2)+'s';
+      conv.appendChild(t);
+      makeDraggable(t, onIngredientDrop);
+
+      // info tooltip: hover (mouse) and select/drag (touch)
+      t.addEventListener('pointerenter', e=>{ if(e.pointerType==='mouse') showIngTip(ing, e.clientX, e.clientY); });
+      t.addEventListener('pointerleave', e=>{ if(e.pointerType==='mouse' && !t.classList.contains('dragging')) hideIngTip(); });
+      t.addEventListener('pointerdown', e=>{ showIngTip(ing, e.clientX, e.clientY); });
+      t.addEventListener('pointermove', e=>{ if(document.getElementById('ingTip').classList.contains('show')) positionIngTip(e.clientX, e.clientY); });
+      t.addEventListener('pointerup', ()=>hideIngTipSoon(2400));
+      t.addEventListener('pointercancel', ()=>hideIngTip());
+    });
+
+    registerZones([{el:document.getElementById('potZone'),name:'pot'}]);
+  }
+
+  function onIngredientDrop(el, x, y){
+    const zone=zoneAt(x,y);
+    if(zone && zone.name==='pot'){
+      const good=el.dataset.good==='1';
+      if(good){
+        addScore(100);
+        scorePop(x,y,'+100',true);
+        Sound.good();
+        state.integrity=Math.min(100, state.integrity + 20);
+        state.s1placed++;
+        // add topping to pot
+        const top=document.getElementById('s1toppings');
+        const s=document.createElement('span');
+        s.textContent=el.dataset.emoji;
+        top.appendChild(s);
+        pulsePot('s1pot');
+        el.remove();
+        document.getElementById('s1count').textContent=state.s1placed;
+        updateIntegrity();
+        if(state.s1placed>=state.s1correctNeeded){
+          setTimeout(()=>{ toast('Perfect base! Data integrity locked in 🛡️','good'); setTimeout(()=>{ show('stage2'); buildStage2(); },1200); },300);
+        }
+      } else {
+        addScore(-50);
+        scorePop(x,y,'-50',false);
+        Sound.bad();
+        state.integrity=Math.max(0, state.integrity - 12);
+        updateIntegrity();
+        toast('Good reporting starts with trusted data.','bad');
+        homeToken(el);
+      }
+    } else {
+      homeToken(el);
+    }
+  }
+
+  function homeToken(el){
+    el.style.transition='left .3s ease, top .3s ease';
+    el.style.left=el._home.left; el.style.top=el._home.top;
+    el.style.position='absolute';
+    setTimeout(()=>{ el.style.transition=''; el.classList.add('float'); },320);
+  }
+
+  function updateIntegrity(){
+    document.getElementById('integrityFill').style.width=state.integrity+'%';
+    document.getElementById('integrityPct').textContent=Math.round(state.integrity)+'%';
+  }
+
+  /* ---------------- STAGE 2 ---------------- */
+  const DATA_CARDS=[
+    {icon:'💰',title:'Current customer balance',tag:'live account data',years:0,dest:'active'},
+    {icon:'📄',title:'Open payment item',tag:'unpaid / pending',years:0.5,dest:'active'},
+    {icon:'🧾',title:'Current billing transaction',tag:'this period',years:0.1,dest:'active'},
+    {icon:'✅',title:'Recently cleared item',tag:'still referenced',years:2,dest:'active'},
+    {icon:'📜',title:'Historical closed transaction',tag:'closed & settled',years:9,dest:'archive'},
+    {icon:'🗂️',title:'Old completed financial record',tag:'settled long ago',years:12,dest:'archive'},
+    {icon:'📊',title:'Archived reporting-period data',tag:'prior fiscal years',years:8,dest:'archive'}
+  ];
+  const RETENTION_YEARS=7;
+  function retentionInfo(years){
+    const beyond=years>=RETENTION_YEARS;
+    const age=years<1 ? 'under 1 yr old' : ('~'+Math.round(years)+' yrs old');
+    return {beyond, age, note:(beyond?'beyond':'within')+' '+RETENTION_YEARS+'-yr retention'};
+  }
+
+  let s2deck=[];
+  function buildStage2(){
+    state.s2sorted=0; state.s2correct=0; state.load=100;
+    document.getElementById('s2count').textContent='0';
+    document.getElementById('activeCaught').innerHTML='';
+    document.getElementById('archiveCaught').innerHTML='';
+    updateLoad();
+    s2deck=DATA_CARDS.slice().sort(()=>Math.random()-0.5);
+    const stack=document.getElementById('cardStack');
+    stack.innerHTML='';
+    showNextCard();
+    registerZones([
+      {el:document.querySelector('.bin.active-pot'),name:'active'},
+      {el:document.querySelector('.bin.archive'),name:'archive'}
+    ]);
+  }
+
+  function showNextCard(){
+    const stack=document.getElementById('cardStack');
+    stack.innerHTML='';
+    if(s2deck.length===0){
+      setTimeout(()=>{ toast('Data lifecycle sorted! Pot is lean 🎉','good'); setTimeout(()=>{ show('stage3'); },1200); },200);
+      return;
+    }
+    const card=s2deck[0];
+    const c=document.createElement('div');
+    c.className='data-card';
+    const ri=retentionInfo(card.years);
+    c.innerHTML='<div class="dc-icon">'+card.icon+'</div>'
+      +'<div class="dc-title">'+card.title+'</div>'
+      +'<div class="dc-tag">'+card.tag+'</div>'
+      +'<div class="dc-retention '+(ri.beyond?'beyond':'within')+'">🗓️ '+ri.age+' · '+ri.note+'</div>';
+    c.dataset.dest=card.dest;
+    c.dataset.icon=card.icon;
+    c.dataset.title=card.title;
+    stack.appendChild(c);
+    const cnt=document.createElement('div');
+    cnt.className='deck-count';
+    cnt.textContent=(state.s2total-s2deck.length+1)+' of '+state.s2total+' — drag to the right place';
+    stack.appendChild(cnt);
+    makeDraggable(c, onCardDrop);
+  }
+
+  function onCardDrop(el, x, y){
+    const zone=zoneAt(x,y);
+    if(zone && (zone.name==='active'||zone.name==='archive')){
+      const correct=(zone.name===el.dataset.dest);
+      s2deck.shift();
+      state.s2sorted++;
+      document.getElementById('s2count').textContent=state.s2sorted;
+      if(correct){
+        addScore(150);
+        scorePop(x,y,'+150',true);
+        Sound.good();
+        state.s2correct++;
+        // reduce database load meter
+        state.load=Math.max(8, state.load - (92/state.s2total));
+        toast(zone.name==='archive'?'Archived safely — integrity preserved 📦':'Kept lean in the active pot 🍲','good');
+      } else {
+        addScore(-75);
+        scorePop(x,y,'-75',false);
+        Sound.bad();
+        state.load=Math.min(100, state.load + 6);
+        toast('Keep active data lean. Preserve historical data safely.','bad');
+      }
+      updateLoad();
+      // drop mini card into bin
+      const caught=document.getElementById(zone.name==='active'?'activeCaught':'archiveCaught');
+      const m=document.createElement('div');
+      m.className='mini-card';
+      m.textContent=el.dataset.icon+' '+el.dataset.title;
+      caught.appendChild(m);
+      el.remove();
+      showNextCard();
+    } else {
+      // return to center
+      el.style.transition='left .3s ease, top .3s ease, transform .3s';
+      el.style.position='';el.style.left='';el.style.top='';el.style.margin='';el.style.transform='';
+      // rebuild to recentre reliably
+      setTimeout(showNextCard,50);
+    }
+  }
+
+  function updateLoad(){
+    document.getElementById('loadFill').style.width=state.load+'%';
+    document.getElementById('loadPct').textContent=Math.round(state.load)+'%';
+  }
+
+  /* ---------------- STAGE 3 ---------------- */
+  let cooking=false;
+  function startCooking(){
+    if(cooking) return;
+    cooking=true;
+    Sound.resume();
+    document.getElementById('cookBtn').disabled=true;
+    const timerEl=document.getElementById('cookTimer');
+    const fill=document.getElementById('cookFill');
+    const pct=document.getElementById('cookPct');
+    const msg=document.getElementById('cookMsg');
+    const pot=document.getElementById('s3pot');
+
+    // efficiency from archival: better sorting => faster + higher improvement
+    const eff=state.s2correct/state.s2total; // 0..1
+    // Phase 1: brief "overloaded" struggle, then optimized rush
+    let t=0, prog=0;
+    let phase=1;
+    msg.textContent='⚠️ Too much data in the active pot!';
+    pot.style.filter='grayscale(.4) drop-shadow(0 12px 14px var(--shadow))';
+
+    const start=performance.now();
+    const target=12; // seconds target
+    // total sim ~ between 6s (great) and 11s (poor)
+    const totalTime=11 - eff*5;
+
+    const iv=setInterval(()=>{
+      t=(performance.now()-start)/1000;
+      timerEl.textContent=t.toFixed(1)+'s';
+
+      if(phase===1){
+        // slow crawl for first ~1.8s
+        prog=Math.min(18, (t/1.8)*18);
+        if(t>=1.8){ phase=2; msg.textContent='📦 Archived data offloaded — pot is lean!'; pot.style.filter=''; Sound.good(); }
+      } else {
+        const p2=(t-1.8)/(totalTime-1.8);
+        prog=18 + Math.min(82, p2*82);
+        if(prog>40 && prog<44) msg.textContent='🔥 Cooking fast — reporting flying through…';
+        if(prog>75 && prog<79) msg.textContent='📊 Month-end dashboard nearly complete…';
+      }
+      if(Math.random()<0.3) Sound.tick();
+      fill.style.width=prog+'%';
+      pct.textContent=Math.round(prog)+'%';
+
+      if(prog>=100 || t>=totalTime){
+        clearInterval(iv);
+        fill.style.width='100%'; pct.textContent='100%';
+        finishCooking(t);
+      }
+    },70);
+  }
+
+  function finishCooking(t){
+    state.cookTime=t;
+    const msg=document.getElementById('cookMsg');
+    msg.textContent='✨ Perfectly optimised!';
+    Sound.win();
+    pulsePot('s3pot');
+
+    // performance improvement: before=100% time, after based on efficiency
+    const eff=state.s2correct/state.s2total;
+    const afterProcessing=Math.max(4, Math.round(12 - eff*8)); // 4%..12%
+    state.perfImprovement=100-afterProcessing;
+
+    // bonuses
+    if(t<=12){ state.timeBonus=true; addScore(500); }
+    if(state.perfImprovement>=90){ state.perfBonus=true; addScore(200); }
+
+    // show comparison
+    const box=document.getElementById('compareBox');
+    box.style.display='flex';
+    document.getElementById('afterPct').textContent=afterProcessing+'%';
+    setTimeout(()=>{ document.getElementById('afterFill').style.height=afterProcessing+'%'; },100);
+
+    document.getElementById('cookBtn').textContent='See Your Result →';
+    document.getElementById('cookBtn').disabled=false;
+    document.getElementById('cookBtn').onclick=showResults;
+    cooking=false;
+  }
+
+  /* ---------------- RESULTS ---------------- */
+  function showResults(){
+    show('results');
+    const final=Math.min(state.score,MAX_SCORE);
+    animateNumber('finalScore',0,final,900);
+
+    const integrityPct=Math.round(state.integrity);
+    const archivalPct=Math.round((state.s2correct/state.s2total)*100);
+    const efficiencyPct=Math.round(100-state.load);
+    const speedPct=Math.round(state.perfImprovement);
+
+    setCat('catIntegrity','barIntegrity',integrityPct);
+    setCat('catArchival','barArchival',archivalPct);
+    setCat('catEfficiency','barEfficiency',efficiencyPct);
+    setCat('catSpeed','barSpeed',speedPct);
+
+    // rank
+    const rankEl=document.getElementById('rankName');
+    const descEl=document.getElementById('rankDesc');
+    const badges=document.getElementById('badges');
+    badges.innerHTML='';
+    let rank,desc,cls;
+    if(final>=1600){ rank='🏆 Claypot Master'; desc='Excellent balance of performance, integrity and archival.'; cls='master'; }
+    else if(final>=1000){ rank='👨‍🍳 Finance Chef'; desc='Good result with a few opportunities for optimisation.'; cls='chef'; }
+    else { rank='🧑‍🍳 Kitchen Apprentice'; desc='The Finance Claypot needs further optimisation.'; cls='apprentice'; }
+    rankEl.textContent=rank; rankEl.className='rank '+cls;
+    descEl.textContent=desc;
+
+    // badges earned
+    if(integrityPct>=90) badges.innerHTML+='<span class="badge" title="Data Integrity">🛡️</span>';
+    if(archivalPct>=90) badges.innerHTML+='<span class="badge" title="Archival Ace">📦</span>';
+    if(state.timeBonus) badges.innerHTML+='<span class="badge" title="Speed">⚡</span>';
+    if(cls==='master') badges.innerHTML+='<span class="badge" title="Claypot Master">🏆</span>';
+
+    // player badge (photo + name)
+    const p=Reg.get();
+    const pb=document.getElementById('resultPlayer');
+    const av=p.photo ? '<img src="'+p.photo+'" class="pb-photo" alt="you"/>' : '<div class="pb-photo">🍲</div>';
+    pb.innerHTML=av+'<div class="pb-name">Great cooking, '+(esc(p.name)||'Chef')+'!</div>'+(p.company?'<div class="pb-co">'+esc(p.company)+'</div>':'');
+
+    // save to leaderboard (once per result)
+    if(!state.saved){
+      state.saved=true;
+      Board.add({
+        name:p.name||'Anonymous Chef',
+        company:p.company||'',
+        photo:p.photo||null,
+        score:final,
+        rank:rank,
+        time:Number(state.cookTime.toFixed(1)),
+        improvement:speedPct,
+        ts:Date.now()
+      });
+    }
+
+    Sound.win();
+    if(cls==='master') confettiBurst();
+  }
+  function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  function setCat(valId,barId,pct){
+    document.getElementById(valId).textContent=pct+'%';
+    setTimeout(()=>{ document.getElementById(barId).style.width=pct+'%'; },150);
+  }
+  function animateNumber(id,from,to,dur){
+    const el=document.getElementById(id);
+    const start=performance.now();
+    function step(now){
+      const p=Math.min(1,(now-start)/dur);
+      el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-p,3)));
+      if(p<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function confettiBurst(){
+    const g=document.getElementById('game');
+    const colors=['#f4b301','#d9342b','#3fae52','#ffd54a','#fff4e0'];
+    for(let i=0;i<70;i++){
+      const c=document.createElement('div');
+      c.className='confetti';
+      c.style.left=Math.random()*100+'%';
+      c.style.background=colors[i%colors.length];
+      c.style.transform='rotate('+Math.random()*360+'deg)';
+      g.appendChild(c);
+      const fall=1500+Math.random()*1500;
+      const anim=c.animate([
+        {transform:'translateY(0) rotate(0deg)',opacity:1},
+        {transform:'translateY('+(window.innerHeight+60)+'px) rotate('+(360+Math.random()*720)+'deg)',opacity:.9}
+      ],{duration:fall,easing:'ease-in'});
+      anim.onfinish=()=>c.remove();
+    }
+  }
+
+  function pulsePot(id){
+    const body=document.querySelector('#'+id+' .pot-body');
+    if(!body)return;
+    body.classList.remove('pot-pulse');
+    void body.offsetWidth;
+    body.classList.add('pot-pulse');
+  }
+
+  /* ---------------- flow ---------------- */
+  function resetPlay(){
+    state.score=0; state.integrity=0; state.load=100;
+    state.s1placed=0; state.s2sorted=0; state.s2correct=0;
+    state.cookTime=0; state.perfImprovement=0; state.timeBonus=false; state.perfBonus=false;
+    state.saved=false;
+    refreshScores();
+    document.getElementById('cookFill').style.width='0%';
+    document.getElementById('cookPct').textContent='0%';
+    document.getElementById('cookTimer').textContent='0.0s';
+    document.getElementById('cookMsg').textContent='Press start to run month-end reporting…';
+    document.getElementById('compareBox').style.display='none';
+    document.getElementById('afterFill').style.height='0%';
+    const cb=document.getElementById('cookBtn');
+    cb.textContent='⏱️ START MONTH-END COOKING'; cb.disabled=false; cb.onclick=startCooking;
+    document.getElementById('s3pot').style.filter='';
+  }
+
+  function goRegister(){ Sound.resume(); Reg.resetForm(); show('register'); setTimeout(()=>{ const n=document.getElementById('regName'); if(n)n.focus(); },200); }
+  function backToWelcome(){ Reg.stopCamera(); show('welcome'); }
+  function startGame(){
+    Sound.resume();
+    const p=Reg.collect();
+    if(!p.name){ document.getElementById('regError').textContent='Please enter your name to join the leaderboard.'; return; }
+    document.getElementById('regError').textContent='';
+    Reg.stopCamera();
+    resetPlay();
+    show('stage1'); buildStage1();
+  }
+  function showLeaderboard(){ Sound.resume(); Board.setHighlight(null); Board.render(); show('leaderboard'); }
+  function viewLeaderboard(){ Board.render(); show('leaderboard'); }
+  function playAgain(){ Reg.resetForm(); goRegister(); }
+  function savePhoto(){
+    const p=Reg.get();
+    if(!p.photo){ toast('No photo captured for this round.','bad'); return; }
+    const a=document.createElement('a');
+    a.href=p.photo;
+    a.download='claypot-fica-'+((p.name||'chef').replace(/[^a-z0-9]+/gi,'-').toLowerCase())+'.jpg';
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('Photo downloaded 📸','good');
+  }
+
+  return {goRegister,backToWelcome,startGame,showLeaderboard,viewLeaderboard,playAgain,savePhoto,startCooking,showResults};
+})();
+
+// recompute zone rects on resize (rects read live, so nothing needed, but keep pots sharp)
+window.addEventListener('resize',()=>{});
+</script>
+</body>
+</html>
