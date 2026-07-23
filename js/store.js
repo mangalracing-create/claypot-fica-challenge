@@ -4,99 +4,93 @@
  * One data layer used by BOTH the game (index.html) and the standalone
  * leaderboard screen (leaderboard.html).
  *
- *   - If a real Firebase config is present  -> Firebase Realtime Database (live, cross-device)
- *   - Otherwise                              -> localStorage (single browser, live across tabs)
+ *   - When deployed to Netlify  -> talks to the /.netlify/functions/scores endpoint
+ *                                  (backed by Netlify Blobs). Cross-device, auto-updating.
+ *   - When that endpoint is not reachable (local file testing, offline)
+ *                               -> falls back to localStorage (this device only).
  *
  * API (window.ClaypotStore):
- *   .add(entry)        -> persist a score entry (returns a Promise)
- *   .clearAll()        -> wipe the board (returns a Promise)
- *   .get()             -> synchronous snapshot (array) of the latest known entries
- *   .subscribe(fn)     -> fn(list) is called now and on every change; returns an unsubscribe fn
- *   .mode()            -> "firebase" | "local"
+ *   .add(entry)     -> persist a score entry (returns a Promise)
+ *   .clearAll()     -> wipe the board (returns a Promise)
+ *   .get()          -> synchronous snapshot (array) of the latest known entries
+ *   .subscribe(fn)  -> fn(list) called now and on every change; returns an unsubscribe fn
+ *   .refresh()      -> force a re-read from the backend (returns a Promise)
+ *   .mode()         -> "cloud" | "local"
  *
- * Entry shape (written by the game): { name, company, photo, score, rank, time, improvement, ts }
+ * Entry shape (written by the game): { name, company, score, rank, time, improvement, ts }
  */
 window.ClaypotStore = (function () {
+  var cfg = window.CLAYPOT_CONFIG || {};
   var LS_KEY = "claypot_leaderboard_v1";
-  var boardId = window.CLAYPOT_BOARD_ID || "default";
+  var boardId = cfg.boardId || "default";
+  var apiBase = cfg.apiBase || "/.netlify/functions/scores";
+  var POLL_MS = cfg.pollMs || 3500;
+
   var cache = [];
   var subs = [];
   var mode = "local";
-  var dbRef = null;
+  var pollTimer = null;
 
   function notify() {
     var snapshot = cache.slice();
     subs.forEach(function (fn) { try { fn(snapshot); } catch (e) { /* ignore */ } });
   }
+  function sameData(a, b) { try { return JSON.stringify(a) === JSON.stringify(b); } catch (e) { return false; } }
 
-  function lsRead() {
-    try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch (e) { return []; }
-  }
-  function lsWrite(list) {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (e) { /* quota / disabled */ }
-  }
+  // ---- localStorage helpers ----
+  function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch (e) { return []; } }
+  function lsWrite(list) { try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (e) { /* quota/disabled */ } }
 
-  function initLocal() {
-    mode = "local";
-    cache = lsRead();
-    // live updates across tabs/windows of the SAME browser
-    window.addEventListener("storage", function (e) {
-      if (e.key === LS_KEY) { cache = lsRead(); notify(); }
-    });
-    notify();
+  function apiUrl() { return apiBase + "?board=" + encodeURIComponent(boardId); }
+
+  function fetchCloud() {
+    return fetch(apiUrl(), { cache: "no-store" }).then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }).then(function (data) { return Array.isArray(data) ? data : []; });
   }
 
-  function initFirebase(cfg) {
-    try {
-      if (!firebase.apps || !firebase.apps.length) { firebase.initializeApp(cfg); }
-      dbRef = firebase.database().ref("boards/" + boardId + "/scores");
-      mode = "firebase";
-      dbRef.on("value", function (snap) {
-        var val = snap.val() || {};
-        cache = Object.keys(val).map(function (k) {
-          var row = val[k] || {};
-          row.id = k;
-          return row;
-        });
-        notify();
-      }, function (err) {
-        console.warn("[ClaypotStore] Firebase read failed, falling back to localStorage.", err);
-        initLocal();
-      });
-    } catch (e) {
-      console.warn("[ClaypotStore] Firebase init failed, using localStorage.", e);
-      initLocal();
-    }
-  }
-
-  function isConfigured(cfg) {
-    if (!cfg) return false;
-    var s = JSON.stringify(cfg);
-    return !!cfg.apiKey && !!cfg.databaseURL && s.indexOf("YOUR_") === -1;
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(function () {
+      fetchCloud().then(function (list) {
+        if (!sameData(list, cache)) { cache = list; notify(); }
+      }).catch(function () { /* transient network hiccup — keep last cache */ });
+    }, POLL_MS);
   }
 
   function add(entry) {
-    if (mode === "firebase" && dbRef) {
-      return dbRef.push(entry);
+    if (mode === "cloud") {
+      return fetch(apiUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry)
+      }).then(function () { return fetchCloud(); })
+        .then(function (list) { cache = list; notify(); })
+        .catch(function () { /* keep going even if the write response is slow */ });
     }
-    cache = lsRead();
-    cache.push(entry);
-    lsWrite(cache);
-    notify();
+    cache = lsRead(); cache.push(entry); lsWrite(cache); notify();
     return Promise.resolve();
   }
 
   function clearAll() {
-    if (mode === "firebase" && dbRef) {
-      return dbRef.remove();
+    if (mode === "cloud") {
+      return fetch(apiUrl(), { method: "DELETE" })
+        .then(function () { cache = []; notify(); });
     }
-    cache = [];
-    lsWrite(cache);
-    notify();
+    cache = []; lsWrite(cache); notify();
     return Promise.resolve();
   }
 
   function get() { return cache.slice(); }
+
+  function refresh() {
+    if (mode === "cloud") {
+      return fetchCloud().then(function (list) { cache = list; notify(); }).catch(function () {});
+    }
+    cache = lsRead(); notify();
+    return Promise.resolve();
+  }
 
   function subscribe(fn) {
     subs.push(fn);
@@ -104,13 +98,27 @@ window.ClaypotStore = (function () {
     return function () { subs = subs.filter(function (s) { return s !== fn; }); };
   }
 
-  // ---- boot ----
-  var cfg = window.CLAYPOT_FIREBASE_CONFIG;
-  if (isConfigured(cfg) && typeof firebase !== "undefined") {
-    initFirebase(cfg);
-  } else {
-    initLocal();
+  // ---- boot: probe the cloud endpoint, else fall back to localStorage ----
+  function initLocal() {
+    mode = "local";
+    cache = lsRead();
+    window.addEventListener("storage", function (e) {
+      if (e.key === LS_KEY) { cache = lsRead(); notify(); }
+    });
+    notify();
   }
 
-  return { add: add, clearAll: clearAll, get: get, subscribe: subscribe, mode: function () { return mode; } };
+  fetchCloud().then(function (list) {
+    mode = "cloud";
+    cache = list;
+    notify();
+    startPolling();
+  }).catch(function () {
+    initLocal();
+  });
+
+  return {
+    add: add, clearAll: clearAll, get: get, refresh: refresh,
+    subscribe: subscribe, mode: function () { return mode; }
+  };
 })();
